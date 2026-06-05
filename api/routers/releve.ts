@@ -1,21 +1,54 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
+import {
+  createRouter,
+  protectedProcedure,
+  secretaireOrAdminProcedure,
+} from "../middleware";
 import { getDb } from "../queries/connection";
-import { releve, notes, deliberation, candidat, matiere, serieMatiere, convocation, session, serie } from "@db/schema";
-import { eq, and } from "drizzle-orm";
+import {
+  releve,
+  notes,
+  deliberation,
+  candidat,
+  matiere,
+  serieMatiere,
+  convocation,
+  session,
+  serie,
+} from "@db/schema";
+import { eq, and, inArray } from "drizzle-orm";
 
 export const releveRouter = createRouter({
-  list: publicQuery.query(async () => {
+  list: protectedProcedure.query(async ({ ctx }) => {
     const db = getDb();
+    const user = ctx.user!;
+    if (user.role === "ecole") {
+      const candidateIds = await db
+        .select({ idInscription: candidat.idInscription })
+        .from(candidat)
+        .where(eq(candidat.idEcole, user.id));
+      const ids = candidateIds.map(c => c.idInscription);
+      if (ids.length === 0) return [];
+      return db.select().from(releve).where(inArray(releve.idInscription, ids));
+    }
     return db.select().from(releve);
   }),
 
-  getByCandidate: publicQuery
-    .input(
-      z.object({ idInscription: z.number(), idSession: z.number() })
-    )
-    .query(async ({ input }) => {
+  getByCandidate: protectedProcedure
+    .input(z.object({ idInscription: z.number(), idSession: z.number() }))
+    .query(async ({ ctx, input }) => {
       const db = getDb();
+      const user = ctx.user!;
+      if (user.role === "ecole") {
+        const candidate = await db
+          .select()
+          .from(candidat)
+          .where(eq(candidat.idInscription, input.idInscription))
+          .limit(1);
+        if (candidate.length === 0 || candidate[0].idEcole !== user.id) {
+          return null;
+        }
+      }
       const results = await db
         .select()
         .from(releve)
@@ -30,17 +63,28 @@ export const releveRouter = createRouter({
     }),
 
   // Generate complete transcript data
-  generateTranscript: publicQuery
+  generateTranscript: protectedProcedure
     .input(
       z.object({
         idInscription: z.number(),
         idSession: z.number(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = getDb();
+      const user = ctx.user!;
 
-      // Get candidate
+      if (user.role === "ecole") {
+        const candidate = await db
+          .select()
+          .from(candidat)
+          .where(eq(candidat.idInscription, input.idInscription))
+          .limit(1);
+        if (candidate.length === 0 || candidate[0].idEcole !== user.id) {
+          return { found: false };
+        }
+      }
+
       const candidates = await db
         .select()
         .from(candidat)
@@ -52,15 +96,12 @@ export const releveRouter = createRouter({
       }
 
       const candidate = candidates[0];
-
-      // Get session info
       const sessions = await db
         .select()
         .from(session)
         .where(eq(session.idSession, input.idSession))
         .limit(1);
 
-      // Get serie info
       const series = candidate.idSerie
         ? await db
             .select()
@@ -69,7 +110,6 @@ export const releveRouter = createRouter({
             .limit(1)
         : [];
 
-      // Get convocation
       const convocations = await db
         .select()
         .from(convocation)
@@ -81,7 +121,6 @@ export const releveRouter = createRouter({
         )
         .limit(1);
 
-      // Get notes with matiere details
       const candidateNotes = await db
         .select()
         .from(notes)
@@ -124,7 +163,6 @@ export const releveRouter = createRouter({
         }
       }
 
-      // Get deliberation
       const delibs = await db
         .select()
         .from(deliberation)
@@ -145,11 +183,14 @@ export const releveRouter = createRouter({
         notes: notesWithDetails,
         deliberation: delibs[0] || null,
         totalPoints: notesWithDetails.reduce((s, n) => s + n.total, 0),
-        totalCoefficients: notesWithDetails.reduce((s, n) => s + n.coefficient, 0),
+        totalCoefficients: notesWithDetails.reduce(
+          (s, n) => s + n.coefficient,
+          0
+        ),
       };
     }),
 
-  create: publicQuery
+  create: secretaireOrAdminProcedure
     .input(
       z.object({
         idInscription: z.number(),
@@ -161,6 +202,13 @@ export const releveRouter = createRouter({
     .mutation(async ({ input }) => {
       const db = getDb();
       const result = await db.insert(releve).values(input);
-      return { success: true, id: Number(result[0].insertId) };
+      return {
+        success: true,
+        id: Number(
+          (result as any).insertId ??
+            (result as any).lastInsertRowid ??
+            (result as any).id
+        ),
+      };
     }),
 });

@@ -1,35 +1,66 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
+import { TRPCError } from "@trpc/server";
+import {
+  createRouter,
+  protectedProcedure,
+  secretaireOrAdminProcedure,
+} from "../middleware";
 import { getDb } from "../queries/connection";
-import { notes, deliberation, candidat, serieMatiere, convocation } from "@db/schema";
-import { eq, and } from "drizzle-orm";
+import { notes, candidat, convocation } from "@db/schema";
+import { eq, and, inArray } from "drizzle-orm";
 
 export const notesRouter = createRouter({
-  listBySession: publicQuery
+  listBySession: protectedProcedure
     .input(z.object({ idSession: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = getDb();
+      if (ctx.user.role === "ecole") {
+        const candidates = await db
+          .select({ idInscription: candidat.idInscription })
+          .from(candidat)
+          .where(eq(candidat.idEcole, ctx.user.id));
+        const ids = candidates.map(c => c.idInscription);
+        if (ids.length === 0) return [];
+        return db
+          .select()
+          .from(notes)
+          .where(
+            and(
+              eq(notes.idSession, input.idSession),
+              inArray(notes.idInscription, ids)
+            )
+          );
+      }
       return db
         .select()
         .from(notes)
         .where(eq(notes.idSession, input.idSession));
     }),
 
-  listByCandidate: publicQuery
+  listByCandidate: protectedProcedure
     .input(z.object({ idInscription: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = getDb();
+      if (ctx.user.role === "ecole") {
+        const candidate = await db
+          .select()
+          .from(candidat)
+          .where(eq(candidat.idInscription, input.idInscription))
+          .limit(1);
+        if (candidate.length === 0 || candidate[0].idEcole !== ctx.user.id) {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+      }
       return db
         .select()
         .from(notes)
         .where(eq(notes.idInscription, input.idInscription));
     }),
 
-  getByCentre: publicQuery
+  getByCentre: protectedProcedure
     .input(z.object({ centre: z.string(), idSession: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = getDb();
-      // Get all candidates in this centre and session
       const convocations = await db
         .select()
         .from(convocation)
@@ -42,6 +73,17 @@ export const notesRouter = createRouter({
 
       const results = [];
       for (const conv of convocations) {
+        const candidate = await db
+          .select()
+          .from(candidat)
+          .where(eq(candidat.idInscription, conv.idInscription))
+          .limit(1);
+
+        if (candidate.length === 0) continue;
+        if (ctx.user.role === "ecole" && candidate[0].idEcole !== ctx.user.id) {
+          continue;
+        }
+
         const candidateNotes = await db
           .select()
           .from(notes)
@@ -52,24 +94,16 @@ export const notesRouter = createRouter({
             )
           );
 
-        const candidates = await db
-          .select()
-          .from(candidat)
-          .where(eq(candidat.idInscription, conv.idInscription))
-          .limit(1);
-
-        if (candidates.length > 0) {
-          results.push({
-            candidate: candidates[0],
-            numeroTable: conv.numeroTable,
-            notes: candidateNotes,
-          });
-        }
+        results.push({
+          candidate: candidate[0],
+          numeroTable: conv.numeroTable,
+          notes: candidateNotes,
+        });
       }
       return results;
     }),
 
-  createOrUpdate: publicQuery
+  createOrUpdate: secretaireOrAdminProcedure
     .input(
       z.object({
         idInscription: z.number(),
@@ -109,7 +143,7 @@ export const notesRouter = createRouter({
       return { success: true };
     }),
 
-  delete: publicQuery
+  delete: secretaireOrAdminProcedure
     .input(
       z.object({
         idInscription: z.number(),
@@ -132,7 +166,7 @@ export const notesRouter = createRouter({
     }),
 
   // Bulk grade entry
-  bulkCreate: publicQuery
+  bulkCreate: secretaireOrAdminProcedure
     .input(
       z.array(
         z.object({

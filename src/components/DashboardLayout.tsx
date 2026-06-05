@@ -16,6 +16,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useState } from "react";
+import { Toaster } from "@/components/ui/sonner";
 
 const adminNavItems = [
   { icon: LayoutDashboard, label: "Tableau de bord", path: "/dashboard" },
@@ -24,7 +25,11 @@ const adminNavItems = [
   { icon: Users, label: "Candidats", path: "/dashboard/candidats" },
   { icon: BookOpen, label: "Series & Matieres", path: "/dashboard/series" },
   { icon: FileText, label: "Notes", path: "/dashboard/notes" },
-  { icon: ClipboardList, label: "Deliberation", path: "/dashboard/deliberation" },
+  {
+    icon: ClipboardList,
+    label: "Deliberation",
+    path: "/dashboard/deliberation",
+  },
   { icon: MapPin, label: "Convocations", path: "/dashboard/convocations" },
   { icon: Award, label: "Releves", path: "/dashboard/releves" },
 ];
@@ -33,7 +38,11 @@ const ecoleNavItems = [
   { icon: LayoutDashboard, label: "Mon espace", path: "/dashboard" },
   { icon: Users, label: "Mes candidats", path: "/dashboard/candidats" },
   { icon: FileText, label: "Notes", path: "/dashboard/notes" },
-  { icon: ClipboardList, label: "Deliberation", path: "/dashboard/deliberation" },
+  {
+    icon: ClipboardList,
+    label: "Deliberation",
+    path: "/dashboard/deliberation",
+  },
   { icon: Award, label: "Releves", path: "/dashboard/releves" },
 ];
 
@@ -41,14 +50,22 @@ const secretaireNavItems = [
   { icon: LayoutDashboard, label: "Tableau de bord", path: "/dashboard" },
   { icon: FileText, label: "Saisie des notes", path: "/dashboard/notes" },
   { icon: MapPin, label: "Centres d'examen", path: "/dashboard/convocations" },
-  { icon: ClipboardList, label: "Deliberation", path: "/dashboard/deliberation" },
+  {
+    icon: ClipboardList,
+    label: "Deliberation",
+    path: "/dashboard/deliberation",
+  },
 ];
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { user, logout, isAdmin, isEcole, isSecretaire } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed] = useState(false);
 
   let navItems = adminNavItems;
   if (isEcole) navItems = ecoleNavItems;
@@ -71,7 +88,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div>
                 <h1 className="font-bold text-lg leading-tight">UniResults</h1>
                 <p className="text-[10px] text-white/50 uppercase tracking-wider">
-                  {isAdmin ? "Administration" : isEcole ? "Espace Ecole" : "Espace Secretaire"}
+                  {isAdmin
+                    ? "Administration"
+                    : isEcole
+                      ? "Espace Ecole"
+                      : "Espace Secretaire"}
                 </p>
               </div>
             )}
@@ -79,7 +100,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <nav className="p-2 space-y-1 mt-2">
-          {navItems.map((item) => {
+          {navItems.map(item => {
             const isActive = location.pathname === item.path;
             return (
               <Link
@@ -137,7 +158,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <header className="bg-white border-b border-[#C4D7C4] px-6 py-4 flex items-center justify-between sticky top-0 z-40">
           <div>
             <h2 className="text-lg font-semibold text-[#202A26]">
-              {navItems.find((n) => n.path === location.pathname)?.label || "Tableau de bord"}
+              {navItems.find(n => n.path === location.pathname)?.label ||
+                "Tableau de bord"}
             </h2>
           </div>
           <div className="flex items-center gap-3">
@@ -158,6 +180,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Page content */}
         <div className="p-6">{children}</div>
       </main>
+      <Toaster />
     </div>
   );
 }

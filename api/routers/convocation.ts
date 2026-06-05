@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
+import { createRouter, publicQuery, adminProcedure } from "../middleware";
 import { getDb } from "../queries/connection";
 import { convocation, candidat, centreExamen } from "@db/schema";
 import { eq, and, count } from "drizzle-orm";
@@ -16,9 +16,7 @@ export const convocationRouter = createRouter({
     }),
 
   getByCandidate: publicQuery
-    .input(
-      z.object({ idInscription: z.number(), idSession: z.number() })
-    )
+    .input(z.object({ idInscription: z.number(), idSession: z.number() }))
     .query(async ({ input }) => {
       const db = getDb();
       const results = await db
@@ -157,7 +155,7 @@ export const convocationRouter = createRouter({
     return db.select().from(centreExamen);
   }),
 
-  createCentre: publicQuery
+  createCentre: adminProcedure
     .input(
       z.object({
         nom: z.string().min(1),
@@ -169,6 +167,13 @@ export const convocationRouter = createRouter({
     .mutation(async ({ input }) => {
       const db = getDb();
       const result = await db.insert(centreExamen).values(input);
-      return { success: true, id: Number(result[0].insertId) };
+      return {
+        success: true,
+        id: Number(
+          (result as any).insertId ??
+            (result as any).lastInsertRowid ??
+            (result as any).id
+        ),
+      };
     }),
 });

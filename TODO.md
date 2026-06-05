@@ -1,0 +1,4 @@
+- [x] Ajouter un menu burger + drawer mobile dans `src/components/DashboardLayout.tsx`
+- [x] Gérer overlay + fermeture au clic (mobile)
+- [x] Fermer la sidebar au changement de route (mobile)
+- [ ] Tester sur mobile (<768px) et desktop

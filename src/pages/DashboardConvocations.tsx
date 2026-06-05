@@ -4,27 +4,23 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Dialog,
   DialogContent,
+  
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  MapPin,
-  Plus,
-  Trash2,
-  Printer,
-  Building2,
-  Users,
-} from "lucide-react";
+import { MapPin, Plus, Printer, Building2, Users } from "lucide-react";
 
 export default function DashboardConvocations() {
+  const { isAdmin } = useAuth();
   const utils = trpc.useUtils();
   const centresQuery = trpc.convocation.listCentres.useQuery();
   const sessionsQuery = trpc.session.list.useQuery();
-  const candidatsQuery = trpc.candidat.list.useQuery();
+  /*const candidatsQuery = trpc.candidat.list.useQuery();*/
 
   const [open, setOpen] = useState(false);
   const [centreForm, setCentreForm] = useState({
@@ -60,7 +56,7 @@ export default function DashboardConvocations() {
             <div className="space-y-2">
               <Label>Session</Label>
               <select className="w-48 h-10 px-3 rounded-md border border-input bg-background text-sm">
-                {sessionsQuery.data?.map((s) => (
+                {sessionsQuery.data?.map(s => (
                   <option key={s.idSession} value={s.idSession}>
                     {s.libelleSession}
                   </option>
@@ -73,7 +69,7 @@ export default function DashboardConvocations() {
                 id="gen-centre"
                 className="w-56 h-10 px-3 rounded-md border border-input bg-background text-sm"
               >
-                {centresQuery.data?.map((c) => (
+                {centresQuery.data?.map(c => (
                   <option key={c.idCentre} value={c.nom}>
                     {c.nom}
                   </option>
@@ -107,76 +103,81 @@ export default function DashboardConvocations() {
               <Building2 className="w-5 h-5 text-[#4A6D8C]" />
               Centres d'examen
             </h3>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-[#1E8B4C] hover:bg-[#167a3f]" size="sm">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Ajouter
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Nouveau centre</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <div className="space-y-2">
-                    <Label>Nom *</Label>
-                    <Input
-                      value={centreForm.nom}
-                      onChange={(e) =>
-                        setCentreForm({ ...centreForm, nom: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+            {isAdmin && (
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-[#1E8B4C] hover:bg-[#167a3f]" size="sm">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Ajouter
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Nouveau centre</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-4">
                     <div className="space-y-2">
-                      <Label>Ville</Label>
+                      <Label>Nom *</Label>
                       <Input
-                        value={centreForm.ville}
-                        onChange={(e) =>
-                          setCentreForm({ ...centreForm, ville: e.target.value })
+                        value={centreForm.nom}
+                        onChange={e =>
+                          setCentreForm({ ...centreForm, nom: e.target.value })
                         }
                       />
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Ville</Label>
+                        <Input
+                          value={centreForm.ville}
+                          onChange={e =>
+                            setCentreForm({
+                              ...centreForm,
+                              ville: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Departement</Label>
+                        <Input
+                          value={centreForm.departement}
+                          onChange={e =>
+                            setCentreForm({
+                              ...centreForm,
+                              departement: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
                     <div className="space-y-2">
-                      <Label>Departement</Label>
+                      <Label>Capacite</Label>
                       <Input
-                        value={centreForm.departement}
-                        onChange={(e) =>
+                        type="number"
+                        value={centreForm.capacite}
+                        onChange={e =>
                           setCentreForm({
                             ...centreForm,
-                            departement: e.target.value,
+                            capacite: parseInt(e.target.value) || 0,
                           })
                         }
                       />
                     </div>
+                    <Button
+                      onClick={() => createCentreMutation.mutate(centreForm)}
+                      className="w-full bg-[#1E8B4C] hover:bg-[#167a3f]"
+                    >
+                      Creer
+                    </Button>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Capacite</Label>
-                    <Input
-                      type="number"
-                      value={centreForm.capacite}
-                      onChange={(e) =>
-                        setCentreForm({
-                          ...centreForm,
-                          capacite: parseInt(e.target.value) || 0,
-                        })
-                      }
-                    />
-                  </div>
-                  <Button
-                    onClick={() => createCentreMutation.mutate(centreForm)}
-                    className="w-full bg-[#1E8B4C] hover:bg-[#167a3f]"
-                  >
-                    Creer
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {centresQuery.data?.map((centre) => (
+            {centresQuery.data?.map(centre => (
               <div
                 key={centre.idCentre}
                 className="bg-white rounded-xl p-5 border border-[#C4D7C4]/30 hover:shadow-md transition-shadow"

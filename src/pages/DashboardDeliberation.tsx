@@ -38,8 +38,10 @@ export default function DashboardDeliberation() {
   const delibs = resultsQuery.data || [];
 
   const getResultIcon = (resultat: string) => {
-    if (resultat === "Admis") return <CheckCircle2 className="w-4 h-4 text-green-500" />;
-    if (resultat === "Ajourne") return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
+    if (resultat === "Admis")
+      return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+    if (resultat === "Ajourne")
+      return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
     return <XCircle className="w-4 h-4 text-red-500" />;
   };
 
@@ -53,10 +55,10 @@ export default function DashboardDeliberation() {
           <div className="flex gap-3">
             <select
               value={selectedSession}
-              onChange={(e) => setSelectedSession(Number(e.target.value))}
+              onChange={e => setSelectedSession(Number(e.target.value))}
               className="h-10 px-3 rounded-md border border-input bg-background text-sm"
             >
-              {sessionsQuery.data?.map((s) => (
+              {sessionsQuery.data?.map(s => (
                 <option key={s.idSession} value={s.idSession}>
                   {s.libelleSession}
                 </option>
@@ -85,7 +87,9 @@ export default function DashboardDeliberation() {
               <p className="text-xs text-gray-500">Admis</p>
             </div>
             <div className="bg-white rounded-xl p-5 border border-yellow-100 text-center">
-              <p className="text-3xl font-bold text-yellow-600">{stats.ajournes}</p>
+              <p className="text-3xl font-bold text-yellow-600">
+                {stats.ajournes}
+              </p>
               <p className="text-xs text-gray-500">Ajournes</p>
             </div>
             <div className="bg-white rounded-xl p-5 border border-red-100 text-center">
@@ -139,7 +143,9 @@ export default function DashboardDeliberation() {
         <div className="bg-white rounded-xl border border-[#C4D7C4]/30 overflow-hidden">
           <div className="px-4 py-3 bg-[#F6F4DE]/50 border-b border-[#C4D7C4]/30 flex items-center gap-2">
             <Award className="w-5 h-5 text-[#1E8B4C]" />
-            <h3 className="font-semibold text-[#202A26]">Liste des resultats</h3>
+            <h3 className="font-semibold text-[#202A26]">
+              Liste des resultats
+            </h3>
           </div>
           <table className="w-full">
             <thead>
@@ -149,6 +155,9 @@ export default function DashboardDeliberation() {
                 </th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">
                   Candidat
+                </th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">
+                  Ecole
                 </th>
                 <th className="text-center px-4 py-3 text-sm font-medium text-gray-500">
                   Moyenne
@@ -164,16 +173,22 @@ export default function DashboardDeliberation() {
             <tbody>
               {delibs.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                    Aucune deliberation. Cliquez sur "Lancer la deliberation" pour
-                    calculer les resultats.
+                  <td
+                    colSpan={6}
+                    className="px-4 py-8 text-center text-gray-500"
+                  >
+                    Aucune deliberation. Cliquez sur "Lancer la deliberation"
+                    pour calculer les resultats.
                   </td>
                 </tr>
               )}
-              {delibs.map((d) => {
+              {delibs.map(d => {
                 const candidate = candidatesQuery.data?.find(
-                  (c) => c.idInscription === d.idInscription
+                  c => c.idInscription === d.idInscription
                 );
+                const school = candidate
+                  ? ecolesQuery.data?.find(e => e.idEcole === candidate.idEcole)
+                  : undefined;
                 return (
                   <tr
                     key={`${d.idInscription}-${d.idSession}`}
@@ -185,6 +200,7 @@ export default function DashboardDeliberation() {
                         ? `${candidate.prenom} ${candidate.nom}`
                         : `#${d.idInscription}`}
                     </td>
+                    <td className="px-4 py-3 text-sm">{school?.nom || "-"}</td>
                     <td className="px-4 py-3 text-sm text-center font-bold">
                       {d.moyenneGenerale?.toFixed(2)}
                     </td>
@@ -197,8 +213,8 @@ export default function DashboardDeliberation() {
                           d.resultat === "Admis"
                             ? "bg-green-50 text-green-600"
                             : d.resultat === "Ajourne"
-                            ? "bg-yellow-50 text-yellow-600"
-                            : "bg-red-50 text-red-600"
+                              ? "bg-yellow-50 text-yellow-600"
+                              : "bg-red-50 text-red-600"
                         }`}
                       >
                         {getResultIcon(d.resultat)}

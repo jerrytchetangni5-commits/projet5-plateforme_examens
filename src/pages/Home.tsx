@@ -11,7 +11,6 @@ import {
   Award,
   Users,
   BookOpen,
-  ChevronRight,
   BarChart3,
   ArrowRight,
 } from "lucide-react";
@@ -26,13 +25,13 @@ export default function Home() {
 
   const sessionsQuery = trpc.session.list.useQuery();
   const consultQuery = trpc.deliberation.consultResults.useQuery(
-  {
-    numeroTable: Number(numeroTable),
-    idSession,
-  },
-  {
-    enabled: false,
-  }
+    {
+      numeroTable: Number(numeroTable),
+      idSession,
+    },
+    {
+      enabled: false,
+    }
   );
 
   const handleSearch = async () => {
@@ -67,8 +66,16 @@ export default function Home() {
 
   const examTypes = [
     { code: "CEP", name: "Certificat d'Etudes Primaires", color: "#1E8B4C" },
-    { code: "BEPC", name: "Brevet d'Etudes du Premier Cycle", color: "#4A6D8C" },
-    { code: "CAP", name: "Certificat d'Aptitude Professionnelle", color: "#800020" },
+    {
+      code: "BEPC",
+      name: "Brevet d'Etudes du Premier Cycle",
+      color: "#4A6D8C",
+    },
+    {
+      code: "CAP",
+      name: "Certificat d'Aptitude Professionnelle",
+      color: "#800020",
+    },
     { code: "BAC", name: "Baccalaureat", color: "#202A26" },
   ];
 
@@ -77,7 +84,10 @@ export default function Home() {
       {/* Hero Section */}
       <header
         className="relative overflow-hidden"
-        style={{ background: "linear-gradient(135deg, #202A26 0%, #1a3d2e 50%, #1E8B4C 100%)" }}
+        style={{
+          background:
+            "linear-gradient(135deg, #202A26 0%, #1a3d2e 50%, #1E8B4C 100%)",
+        }}
       >
         <div className="absolute inset-0 opacity-10">
           <div
@@ -87,7 +97,7 @@ export default function Home() {
             }}
           />
         </div>
-
+            
         <nav className="relative z-10 px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur flex items-center justify-center">
@@ -138,7 +148,7 @@ export default function Home() {
                   type="number"
                   placeholder="Ex: 1001"
                   value={numeroTable}
-                  onChange={(e) => setNumeroTable(e.target.value)}
+                  onChange={e => setNumeroTable(e.target.value)}
                   className="border-[#C4D7C4] focus:border-[#1E8B4C]"
                 />
               </div>
@@ -148,10 +158,10 @@ export default function Home() {
                 </label>
                 <select
                   value={idSession}
-                  onChange={(e) => setIdSession(Number(e.target.value))}
+                  onChange={e => setIdSession(Number(e.target.value))}
                   className="w-full h-10 px-3 rounded-md border border-[#C4D7C4] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1E8B4C] focus:border-transparent"
                 >
-                  {sessionsQuery.data?.map((s) => (
+                  {sessionsQuery.data?.map(s => (
                     <option key={s.idSession} value={s.idSession}>
                       {s.libelleSession} ({s.annee})
                     </option>
@@ -190,12 +200,14 @@ export default function Home() {
                     {searchResult.candidate.prenom} {searchResult.candidate.nom}
                   </h3>
                   <p className="text-white/80 text-sm">
-                    N° Table: {searchResult.numeroTable} | Centre: {searchResult.centre}
+                    N° Table: {searchResult.numeroTable} | Centre:{" "}
+                    {searchResult.centre}
                   </p>
                 </div>
                 <div className="text-right">
                   <div className="text-3xl font-bold">
-                    {searchResult.deliberation?.moyenneGenerale?.toFixed(2) || "--"}
+                    {searchResult.deliberation?.moyenneGenerale?.toFixed(2) ||
+                      "--"}
                   </div>
                   <div className="text-sm text-white/80">/ 20</div>
                 </div>
@@ -235,15 +247,25 @@ export default function Home() {
                   </div>
                 </div>
 
-                <h4 className="font-semibold text-[#202A26] mb-3">Detail des notes</h4>
+                <h4 className="font-semibold text-[#202A26] mb-3">
+                  Detail des notes
+                </h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-[#C4D7C4]">
-                        <th className="text-left py-2 px-3 text-gray-500">Matière</th>
-                        <th className="text-center py-2 px-3 text-gray-500">Note</th>
-                        <th className="text-center py-2 px-3 text-gray-500">Coef</th>
-                        <th className="text-center py-2 px-3 text-gray-500">Total</th>
+                        <th className="text-left py-2 px-3 text-gray-500">
+                          Matière
+                        </th>
+                        <th className="text-center py-2 px-3 text-gray-500">
+                          Note
+                        </th>
+                        <th className="text-center py-2 px-3 text-gray-500">
+                          Coef
+                        </th>
+                        <th className="text-center py-2 px-3 text-gray-500">
+                          Total
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -318,12 +340,13 @@ export default function Home() {
             Examens pris en charge
           </h2>
           <p className="text-gray-500 max-w-2xl mx-auto">
-            Notre plateforme gère tous les examens nationaux du systeme éducatif.
+            Notre plateforme gère tous les examens nationaux du systeme
+            éducatif.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {examTypes.map((exam) => (
+          {examTypes.map(exam => (
             <div
               key={exam.code}
               className="bg-white rounded-xl p-6 shadow-sm border border-[#C4D7C4]/30 hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer group"
@@ -345,7 +368,10 @@ export default function Home() {
                 {exam.code}
               </h3>
               <p className="text-sm text-gray-500 mb-3">{exam.name}</p>
-              <div className="flex items-center text-sm" style={{ color: exam.color }}>
+              <div
+                className="flex items-center text-sm"
+                style={{ color: exam.color }}
+              >
                 <span>Consulter</span>
                 <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
               </div>
@@ -386,7 +412,7 @@ export default function Home() {
                 desc: "Visualisez vos notes, votre moyenne et telechargez votre releve.",
                 icon: Award,
               },
-            ].map((item) => (
+            ].map(item => (
               <div key={item.step} className="text-center group">
                 <div className="relative inline-block mb-6">
                   <div className="w-20 h-20 rounded-2xl bg-[#F6F4DE] flex items-center justify-center group-hover:bg-[#1E8B4C] transition-colors">
@@ -416,7 +442,8 @@ export default function Home() {
                 <span className="text-lg font-bold">UniResults</span>
               </div>
               <p className="text-white/50 text-sm">
-                Plateforme de gestion et de consultation des resultats d'examens.
+                Plateforme de gestion et de consultation des resultats
+                d'examens.
               </p>
             </div>
             <div>
@@ -441,17 +468,26 @@ export default function Home() {
               <h4 className="font-semibold mb-4">Accès</h4>
               <ul className="space-y-2 text-sm text-white/50">
                 <li>
-                  <button onClick={() => navigate("/login")} className="hover:text-white">
+                  <button
+                    onClick={() => navigate("/login")}
+                    className="hover:text-white"
+                  >
                     Espace Admin
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => navigate("/login")} className="hover:text-white">
+                  <button
+                    onClick={() => navigate("/login")}
+                    className="hover:text-white"
+                  >
                     Espace Ecole
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => navigate("/login")} className="hover:text-white">
+                  <button
+                    onClick={() => navigate("/login")}
+                    className="hover:text-white"
+                  >
                     Espace Secretaire
                   </button>
                 </li>

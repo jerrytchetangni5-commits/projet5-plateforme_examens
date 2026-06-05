@@ -45,7 +45,14 @@ export const sessionRouter = createRouter({
           : null,
         statut: input.statut,
       });
-      return { success: true, id: Number(result[0].insertId) };
+      return {
+        success: true,
+        id: Number(
+          (result as any).insertId ??
+            (result as any).lastInsertRowid ??
+            (result as any).id
+        ),
+      };
     }),
 
   update: publicQuery

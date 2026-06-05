@@ -3,29 +3,7 @@ import { createRouter, publicQuery } from "../middleware";
 import { getDb } from "../queries/connection";
 import { admin, ecole, secretaire } from "@db/schema";
 import { eq } from "drizzle-orm";
-import { SignJWT, jwtVerify } from "jose";
-
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "uniresults-jwt-secret-key-2025"
-);
-
-async function createToken(payload: Record<string, unknown>) {
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: "HS256" })
-    .setExpirationTime("24h")
-    .sign(JWT_SECRET);
-}
-
-export async function verifyToken(token: string) {
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET, {
-      clockTolerance: 60,
-    });
-    return payload;
-  } catch {
-    return null;
-  }
-}
+import { signToken } from "../lib/jwt";
 
 export const authRouter = createRouter({
   loginAdmin: publicQuery
@@ -53,7 +31,7 @@ export const authRouter = createRouter({
         return { success: false, error: "Identifiants incorrects" };
       }
 
-      const token = await createToken({
+      const token = await signToken({
         userId: found.idAdmin,
         role: "admin",
         username: found.username,
@@ -95,7 +73,7 @@ export const authRouter = createRouter({
         return { success: false, error: "Email ou mot de passe incorrect" };
       }
 
-      const token = await createToken({
+      const token = await signToken({
         userId: found.idEcole,
         role: "ecole",
         email: found.email,
@@ -137,7 +115,7 @@ export const authRouter = createRouter({
         return { success: false, error: "Email ou mot de passe incorrect" };
       }
 
-      const token = await createToken({
+      const token = await signToken({
         userId: found.idSecretaire,
         role: "secretaire",
         email: found.email,
@@ -156,27 +134,8 @@ export const authRouter = createRouter({
       };
     }),
 
-  me: publicQuery.query(async ({ ctx }) => {
-    const authHeader = ctx.req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return { user: null };
-    }
-
-    const token = authHeader.slice(7);
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return { user: null };
-    }
-
-    return {
-      user: {
-        id: payload.userId,
-        role: payload.role,
-        username: payload.username,
-        email: payload.email,
-        nom: payload.nom,
-      },
-    };
+  me: publicQuery.query(({ ctx }) => {
+    return { user: ctx.user };
   }),
 
   registerEcole: publicQuery

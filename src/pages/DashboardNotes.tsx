@@ -30,8 +30,12 @@ export default function DashboardNotes() {
     },
   });
 
-  const handleNoteChange = (idInscription: number, idMatiere: number, value: number) => {
-    setEditingNotes((prev) => ({
+  const handleNoteChange = (
+    idInscription: number,
+    idMatiere: number,
+    value: number
+  ) => {
+    setEditingNotes(prev => ({
       ...prev,
       [`${idInscription}-${idMatiere}`]: value,
     }));
@@ -49,12 +53,12 @@ export default function DashboardNotes() {
 
   // Get all unique matieres from the data
   const allMatieres = new Set<number>();
-  notesByCentreQuery.data?.forEach((c) => {
-    c.notes.forEach((n) => allMatieres.add(n.idMatiere));
+  notesByCentreQuery.data?.forEach(c => {
+    c.notes.forEach(n => allMatieres.add(n.idMatiere));
   });
 
   const matiereList = Array.from(allMatieres)
-    .map((id) => matieresQuery.data?.find((m) => m.idMatiere === id))
+    .map(id => matieresQuery.data?.find(m => m.idMatiere === id))
     .filter(Boolean);
 
   return (
@@ -71,10 +75,10 @@ export default function DashboardNotes() {
               <Label>Session</Label>
               <select
                 value={selectedSession}
-                onChange={(e) => setSelectedSession(Number(e.target.value))}
+                onChange={e => setSelectedSession(Number(e.target.value))}
                 className="w-48 h-10 px-3 rounded-md border border-input bg-background text-sm"
               >
-                {sessionsQuery.data?.map((s) => (
+                {sessionsQuery.data?.map(s => (
                   <option key={s.idSession} value={s.idSession}>
                     {s.libelleSession}
                   </option>
@@ -86,11 +90,11 @@ export default function DashboardNotes() {
               <Label>Centre d'examen</Label>
               <select
                 value={selectedCentre}
-                onChange={(e) => setSelectedCentre(e.target.value)}
+                onChange={e => setSelectedCentre(e.target.value)}
                 className="w-56 h-10 px-3 rounded-md border border-input bg-background text-sm"
               >
                 <option value="">Choisir un centre...</option>
-                {centresQuery.data?.map((c) => (
+                {centresQuery.data?.map(c => (
                   <option key={c.idCentre} value={c.nom}>
                     {c.nom}
                   </option>
@@ -106,13 +110,15 @@ export default function DashboardNotes() {
               <p className="text-sm text-gray-500">
                 {notesByCentreQuery.data.length} candidat(s) trouve(s)
               </p>
-              <Button
-                onClick={handleSave}
-                className="bg-[#1E8B4C] hover:bg-[#167a3f]"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Sauvegarder les notes
-              </Button>
+              {isSecretaire && (
+                <Button
+                  onClick={handleSave}
+                  className="bg-[#1E8B4C] hover:bg-[#167a3f]"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Sauvegarder les notes
+                </Button>
+              )}
             </div>
 
             <div className="bg-white rounded-xl border border-[#C4D7C4]/30 overflow-x-auto">
@@ -125,7 +131,7 @@ export default function DashboardNotes() {
                     <th className="text-left px-3 py-3 font-medium text-gray-500 sticky left-20 bg-[#F6F4DE]/50">
                       Candidat
                     </th>
-                    {matiereList.map((m) => (
+                    {matiereList.map(m => (
                       <th
                         key={m!.idMatiere}
                         className="text-center px-3 py-3 font-medium text-gray-500 min-w-[80px]"
@@ -136,7 +142,7 @@ export default function DashboardNotes() {
                   </tr>
                 </thead>
                 <tbody>
-                  {notesByCentreQuery.data.map((c) => (
+                  {notesByCentreQuery.data.map(c => (
                     <tr
                       key={c.candidate.idInscription}
                       className="border-b border-gray-50 hover:bg-[#F6F4DE]/30"
@@ -147,9 +153,9 @@ export default function DashboardNotes() {
                       <td className="px-3 py-2 font-medium sticky left-20 bg-white">
                         {c.candidate.prenom} {c.candidate.nom}
                       </td>
-                      {matiereList.map((m) => {
+                      {matiereList.map(m => {
                         const existingNote = c.notes.find(
-                          (n) => n.idMatiere === m!.idMatiere
+                          n => n.idMatiere === m!.idMatiere
                         );
                         const key = `${c.candidate.idInscription}-${m!.idMatiere}`;
                         const value =
@@ -165,7 +171,7 @@ export default function DashboardNotes() {
                               max={20}
                               step={0.5}
                               value={value || ""}
-                              onChange={(e) =>
+                              onChange={e =>
                                 handleNoteChange(
                                   c.candidate.idInscription,
                                   m!.idMatiere,

@@ -1,18 +1,32 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
+import { TRPCError } from "@trpc/server";
+import {
+  createRouter,
+  protectedProcedure,
+  adminProcedure,
+} from "../middleware";
 import { getDb } from "../queries/connection";
-import { candidat, convocation } from "@db/schema";
-import { eq, and, count } from "drizzle-orm";
+import { candidat, convocation, ecole } from "@db/schema";
+import { eq, and, count, inArray } from "drizzle-orm";
 
 export const candidatRouter = createRouter({
-  list: publicQuery.query(async () => {
+  list: protectedProcedure.query(async ({ ctx }) => {
     const db = getDb();
+    if (ctx.user.role === "ecole") {
+      return db
+        .select()
+        .from(candidat)
+        .where(eq(candidat.idEcole, ctx.user.id));
+    }
     return db.select().from(candidat);
   }),
 
-  listByEcole: publicQuery
+  listByEcole: protectedProcedure
     .input(z.object({ idEcole: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      if (ctx.user.role === "ecole" && ctx.user.id !== input.idEcole) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
       const db = getDb();
       return db
         .select()
@@ -20,33 +34,41 @@ export const candidatRouter = createRouter({
         .where(eq(candidat.idEcole, input.idEcole));
     }),
 
-  listBySerie: publicQuery
+  listBySerie: protectedProcedure
     .input(z.object({ idSerie: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = getDb();
-      return db
+      let query = db
         .select()
         .from(candidat)
         .where(eq(candidat.idSerie, input.idSerie));
+      if (ctx.user.role === "ecole") {
+        query = query.where(eq(candidat.idEcole, ctx.user.id));
+      }
+      return query;
     }),
 
-  getById: publicQuery
+  getById: protectedProcedure
     .input(z.object({ id: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = getDb();
       const results = await db
         .select()
         .from(candidat)
         .where(eq(candidat.idInscription, input.id))
         .limit(1);
-      return results[0] || null;
+      const candidate = results[0] || null;
+      if (!candidate) return null;
+      if (ctx.user.role === "ecole" && candidate.idEcole !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      return candidate;
     }),
 
-  searchByNumeroTable: publicQuery
+  searchByNumeroTable: protectedProcedure
     .input(z.object({ numeroTable: z.number(), idSession: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = getDb();
-      // Search by numero_table in convocation
       const convocations = await db
         .select()
         .from(convocation)
@@ -63,15 +85,18 @@ export const candidatRouter = createRouter({
       const candidates = await db
         .select()
         .from(candidat)
-        .where(
-          eq(candidat.idInscription, convocations[0].idInscription)
-        )
+        .where(eq(candidat.idInscription, convocations[0].idInscription))
         .limit(1);
 
-      return candidates[0] || null;
+      const candidate = candidates[0] || null;
+      if (!candidate) return null;
+      if (ctx.user.role === "ecole" && candidate.idEcole !== ctx.user.id) {
+        return null;
+      }
+      return candidate;
     }),
 
-  create: publicQuery
+  create: protectedProcedure
     .input(
       z.object({
         nom: z.string().min(1),
@@ -82,8 +107,39 @@ export const candidatRouter = createRouter({
         idEcole: z.number().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const db = getDb();
+      const isEcoleUser = ctx.user.role === "ecole";
+      const idEcole = isEcoleUser ? ctx.user.id : input.idEcole;
+
+      if (!isEcoleUser) {
+        if (
+          !input.sexe ||
+          !input.dateNaissance ||
+          !input.idSerie ||
+          !input.idEcole
+        ) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Tous les champs sont obligatoires pour la creation d'un candidat par un administrateur.",
+          });
+        }
+
+        const schools = await db
+          .select()
+          .from(ecole)
+          .where(eq(ecole.idEcole, input.idEcole))
+          .limit(1);
+
+        if (schools.length === 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "L'ecole saisie n'existe pas.",
+          });
+        }
+      }
+
       await db.insert(candidat).values({
         nom: input.nom,
         prenom: input.prenom,
@@ -92,13 +148,13 @@ export const candidatRouter = createRouter({
           ? new Date(input.dateNaissance)
           : null,
         idSerie: input.idSerie,
-        idEcole: input.idEcole,
+        idEcole,
       });
 
       return { success: true };
     }),
 
-  update: publicQuery
+  update: protectedProcedure
     .input(
       z.object({
         id: z.number(),
@@ -110,8 +166,30 @@ export const candidatRouter = createRouter({
         idEcole: z.number().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const db = getDb();
+      const existing = await db
+        .select()
+        .from(candidat)
+        .where(eq(candidat.idInscription, input.id))
+        .limit(1);
+
+      if (existing.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      const candidate = existing[0];
+      if (ctx.user.role === "ecole" && candidate.idEcole !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      if (
+        ctx.user.role === "ecole" &&
+        input.idEcole !== undefined &&
+        input.idEcole !== ctx.user.id
+      ) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
       const { id, ...data } = input;
       const updateData: Record<string, unknown> = {};
       if (data.nom) updateData.nom = data.nom;
@@ -129,24 +207,46 @@ export const candidatRouter = createRouter({
       return { success: true };
     }),
 
-  delete: publicQuery
+  delete: protectedProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const db = getDb();
+      const existing = await db
+        .select()
+        .from(candidat)
+        .where(eq(candidat.idInscription, input.id))
+        .limit(1);
+
+      if (existing.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      if (ctx.user.role === "ecole" && existing[0].idEcole !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
       await db.delete(candidat).where(eq(candidat.idInscription, input.id));
       return { success: true };
     }),
 
-  getStats: publicQuery.query(async () => {
+  getStats: protectedProcedure.query(async ({ ctx }) => {
     const db = getDb();
-    const total = await db.select({ count: count() }).from(candidat);
+    const filter =
+      ctx.user.role === "ecole" ? eq(candidat.idEcole, ctx.user.id) : undefined;
+
+    const total = await db
+      .select({ count: count() })
+      .from(candidat)
+      .where(filter ?? (true as any));
     const hommes = await db
       .select({ count: count() })
       .from(candidat)
+      .where(filter ?? (true as any))
       .where(eq(candidat.sexe, "M"));
     const femmes = await db
       .select({ count: count() })
       .from(candidat)
+      .where(filter ?? (true as any))
       .where(eq(candidat.sexe, "F"));
     return {
       total: total[0]?.count || 0,

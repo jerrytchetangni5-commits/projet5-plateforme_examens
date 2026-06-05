@@ -1,26 +1,64 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
+import { TRPCError } from "@trpc/server";
+import {
+  createRouter,
+  protectedProcedure,
+  secretaireOrAdminProcedure,
+} from "../middleware";
 import { getDb } from "../queries/connection";
-import { deliberation, notes, serieMatiere, candidat, session, serie, matiere } from "@db/schema";
-import { eq, and, avg, count } from "drizzle-orm";
+import {
+  deliberation,
+  notes,
+  serieMatiere,
+  candidat,
+  session,
+  serie,
+  matiere,
+} from "@db/schema";
+import { eq, and, inArray } from "drizzle-orm";
 
 export const deliberationRouter = createRouter({
-  listBySession: publicQuery
+  listBySession: protectedProcedure
     .input(z.object({ idSession: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = getDb();
+      if (ctx.user.role === "ecole") {
+        const candidates = await db
+          .select({ idInscription: candidat.idInscription })
+          .from(candidat)
+          .where(eq(candidat.idEcole, ctx.user.id));
+        const ids = candidates.map(c => c.idInscription);
+        if (ids.length === 0) return [];
+        return db
+          .select()
+          .from(deliberation)
+          .where(
+            and(
+              eq(deliberation.idSession, input.idSession),
+              inArray(deliberation.idInscription, ids)
+            )
+          );
+      }
       return db
         .select()
         .from(deliberation)
         .where(eq(deliberation.idSession, input.idSession));
     }),
 
-  getByCandidate: publicQuery
-    .input(
-      z.object({ idInscription: z.number(), idSession: z.number() })
-    )
-    .query(async ({ input }) => {
+  getByCandidate: protectedProcedure
+    .input(z.object({ idInscription: z.number(), idSession: z.number() }))
+    .query(async ({ ctx, input }) => {
       const db = getDb();
+      if (ctx.user.role === "ecole") {
+        const candidates = await db
+          .select()
+          .from(candidat)
+          .where(eq(candidat.idInscription, input.idInscription))
+          .limit(1);
+        if (candidates.length === 0 || candidates[0].idEcole !== ctx.user.id) {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+      }
       const results = await db
         .select()
         .from(deliberation)
@@ -35,7 +73,7 @@ export const deliberationRouter = createRouter({
     }),
 
   // Calculate weighted average and determine result
-  calculate: publicQuery
+  calculate: secretaireOrAdminProcedure
     .input(
       z.object({
         idInscription: z.number(),
@@ -45,7 +83,6 @@ export const deliberationRouter = createRouter({
     .mutation(async ({ input }) => {
       const db = getDb();
 
-      // Get candidate's series
       const candidates = await db
         .select()
         .from(candidat)
@@ -62,7 +99,6 @@ export const deliberationRouter = createRouter({
         return { success: false, error: "Serie non assignee" };
       }
 
-      // Get all notes for this candidate
       const candidateNotes = await db
         .select()
         .from(notes)
@@ -77,20 +113,16 @@ export const deliberationRouter = createRouter({
         return { success: false, error: "Aucune note trouvee" };
       }
 
-      // Get coefficients for this series
       const coefficients = await db
         .select()
         .from(serieMatiere)
         .where(eq(serieMatiere.idSerie, idSerie));
 
-      // Calculate weighted average
       let totalPoints = 0;
       let totalCoefficients = 0;
 
       for (const note of candidateNotes) {
-        const coef = coefficients.find(
-          (c) => c.idMatiere === note.idMatiere
-        );
+        const coef = coefficients.find(c => c.idMatiere === note.idMatiere);
         const coeffValue = coef?.coefficient || 1;
         totalPoints += (note.valeur || 0) * coeffValue;
         totalCoefficients += coeffValue;
@@ -99,7 +131,6 @@ export const deliberationRouter = createRouter({
       const moyenne =
         totalCoefficients > 0 ? totalPoints / totalCoefficients : 0;
 
-      // Determine mention and result
       let mention = "";
       let resultat = "";
 
@@ -123,7 +154,6 @@ export const deliberationRouter = createRouter({
         resultat = "Refuse";
       }
 
-      // Save or update deliberation
       const existing = await db
         .select()
         .from(deliberation)
@@ -138,11 +168,7 @@ export const deliberationRouter = createRouter({
       if (existing.length > 0) {
         await db
           .update(deliberation)
-          .set({
-            moyenneGenerale: moyenne,
-            mention,
-            resultat,
-          })
+          .set({ moyenneGenerale: moyenne, mention, resultat })
           .where(
             and(
               eq(deliberation.idInscription, input.idInscription),
@@ -168,13 +194,11 @@ export const deliberationRouter = createRouter({
     }),
 
   // Run deliberation for all candidates in a session
-  runSessionDeliberation: publicQuery
+  runSessionDeliberation: secretaireOrAdminProcedure
     .input(z.object({ idSession: z.number() }))
     .mutation(async ({ input }) => {
       const db = getDb();
-      const allCandidates = await db
-        .select()
-        .from(candidat);
+      const allCandidates = await db.select().from(candidat);
 
       let processed = 0;
       for (const candidate of allCandidates) {
@@ -202,9 +226,7 @@ export const deliberationRouter = createRouter({
         let totalCoefficients = 0;
 
         for (const note of candidateNotes) {
-          const coef = coefficients.find(
-            (c) => c.idMatiere === note.idMatiere
-          );
+          const coef = coefficients.find(c => c.idMatiere === note.idMatiere);
           const coeffValue = coef?.coefficient || 1;
           totalPoints += (note.valeur || 0) * coeffValue;
           totalCoefficients += coeffValue;
@@ -273,30 +295,62 @@ export const deliberationRouter = createRouter({
       return { success: true, processed };
     }),
 
-  getStats: publicQuery
+  getStats: protectedProcedure
     .input(z.object({ idSession: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = getDb();
+      if (ctx.user.role === "ecole") {
+        const candidates = await db
+          .select({ idInscription: candidat.idInscription })
+          .from(candidat)
+          .where(eq(candidat.idEcole, ctx.user.id));
+        const ids = candidates.map(c => c.idInscription);
+        if (ids.length === 0) {
+          return {
+            total: 0,
+            admis: 0,
+            ajournes: 0,
+            refuses: 0,
+            moyenneGenerale: 0,
+          };
+        }
+        const all = await db
+          .select()
+          .from(deliberation)
+          .where(
+            and(
+              eq(deliberation.idSession, input.idSession),
+              inArray(deliberation.idInscription, ids)
+            )
+          );
+        const total = all.length;
+        const admis = all.filter(d => d.resultat === "Admis").length;
+        const ajournes = all.filter(d => d.resultat === "Ajourne").length;
+        const refuses = all.filter(d => d.resultat === "Refuse").length;
+        const moyenneGenerale =
+          total > 0
+            ? all.reduce((sum, d) => sum + (d.moyenneGenerale || 0), 0) / total
+            : 0;
+        return { total, admis, ajournes, refuses, moyenneGenerale };
+      }
+
       const all = await db
         .select()
         .from(deliberation)
         .where(eq(deliberation.idSession, input.idSession));
-
       const total = all.length;
-      const admis = all.filter((d) => d.resultat === "Admis").length;
-      const ajournes = all.filter((d) => d.resultat === "Ajourne").length;
-      const refuses = all.filter((d) => d.resultat === "Refuse").length;
-
+      const admis = all.filter(d => d.resultat === "Admis").length;
+      const ajournes = all.filter(d => d.resultat === "Ajourne").length;
+      const refuses = all.filter(d => d.resultat === "Refuse").length;
       const moyenneGenerale =
         total > 0
           ? all.reduce((sum, d) => sum + (d.moyenneGenerale || 0), 0) / total
           : 0;
-
       return { total, admis, ajournes, refuses, moyenneGenerale };
     }),
 
   // Consult results publicly
-  consultResults: publicQuery
+  consultResults: protectedProcedure
     .input(
       z.object({
         numeroTable: z.number(),
@@ -305,7 +359,6 @@ export const deliberationRouter = createRouter({
     )
     .query(async ({ input }) => {
       const db = getDb();
-      // Find candidate by numero table in convocation
       const { convocation } = await import("@db/schema");
       const convocations = await db
         .select()
@@ -324,7 +377,6 @@ export const deliberationRouter = createRouter({
 
       const idInscription = convocations[0].idInscription;
 
-      // Get candidate info
       const candidates = await db
         .select()
         .from(candidat)
@@ -335,21 +387,18 @@ export const deliberationRouter = createRouter({
         return { found: false };
       }
 
-      // Get serie
       const series = await db
         .select()
         .from(serie)
         .where(eq(serie.idSerie, candidates[0].idSerie!))
         .limit(1);
 
-      // Get session
       const sessions = await db
         .select()
         .from(session)
         .where(eq(session.idSession, input.idSession))
         .limit(1);
 
-      // Get deliberation
       const delibs = await db
         .select()
         .from(deliberation)
@@ -361,7 +410,6 @@ export const deliberationRouter = createRouter({
         )
         .limit(1);
 
-      // Get notes with matiere names
       const candidateNotes = await db
         .select()
         .from(notes)
@@ -379,10 +427,29 @@ export const deliberationRouter = createRouter({
           .from(matiere)
           .where(eq(matiere.idMatiere, note.idMatiere))
           .limit(1);
+
+        let coefficient = 1;
+        if (candidates[0].idSerie) {
+          const serieCoefficients = await db
+            .select()
+            .from(serieMatiere)
+            .where(
+              and(
+                eq(serieMatiere.idSerie, candidates[0].idSerie),
+                eq(serieMatiere.idMatiere, note.idMatiere)
+              )
+            )
+            .limit(1);
+          if (serieCoefficients.length > 0) {
+            coefficient = serieCoefficients[0].coefficient ?? 1;
+          }
+        }
+
         if (matieres.length > 0) {
           notesWithMatiere.push({
             ...note,
             libelleMatiere: matieres[0].libelleMatiere,
+            coefficient,
           });
         }
       }

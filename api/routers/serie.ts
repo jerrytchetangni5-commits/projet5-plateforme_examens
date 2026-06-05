@@ -30,8 +30,31 @@ export const serieRouter = createRouter({
     )
     .mutation(async ({ input }) => {
       const db = getDb();
+      // prevent duplicate series with same label and exam type
+      const existing = await db
+        .select()
+        .from(serie)
+        .where(
+          and(
+            eq(serie.libelleSerie, input.libelleSerie),
+            eq(serie.typeExamen, input.typeExamen)
+          )
+        );
+      if (existing.length > 0) {
+        throw new Error(
+          "Une série avec ce libellé et type d'examen existe déjà."
+        );
+      }
       const result = await db.insert(serie).values(input);
-      return { success: true, id: Number(result[0].insertId) };
+      const id = Number(
+        (result as any).insertId ??
+          (result as any).lastInsertRowid ??
+          (result as any).id
+      );
+      if (Number.isNaN(id)) {
+        throw new Error("Impossible de récupérer l'id de la série créée");
+      }
+      return { success: true, id };
     }),
 
   delete: publicQuery
@@ -59,7 +82,14 @@ export const matiereRouter = createRouter({
     .mutation(async ({ input }) => {
       const db = getDb();
       const result = await db.insert(matiere).values(input);
-      return { success: true, id: Number(result[0].insertId) };
+      return {
+        success: true,
+        id: Number(
+          (result as any).insertId ??
+            (result as any).lastInsertRowid ??
+            (result as any).id
+        ),
+      };
     }),
 
   delete: publicQuery

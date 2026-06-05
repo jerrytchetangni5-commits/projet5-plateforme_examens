@@ -54,6 +54,10 @@ export default function DashboardReleves() {
   const handlePrint = () => {
     window.print();
   };
+
+  const handleDownloadPdf = () => {
+    window.print();
+  };
   useEffect(() => {
     const numero = searchParams.get("numero");
     const session = searchParams.get("session");
@@ -88,7 +92,7 @@ export default function DashboardReleves() {
                 type="number"
                 placeholder="Ex: 1001"
                 value={numeroTable}
-                onChange={(e) => setNumeroTable(e.target.value)}
+                onChange={e => setNumeroTable(e.target.value)}
                 className="w-48"
               />
             </div>
@@ -96,10 +100,10 @@ export default function DashboardReleves() {
               <Label>Session</Label>
               <select
                 value={idSession}
-                onChange={(e) => setIdSession(Number(e.target.value))}
+                onChange={e => setIdSession(Number(e.target.value))}
                 className="w-48 h-10 px-3 rounded-md border border-input bg-background text-sm"
               >
-                {sessionsQuery.data?.map((s) => (
+                {sessionsQuery.data?.map(s => (
                   <option key={s.idSession} value={s.idSession}>
                     {s.libelleSession}
                   </option>
@@ -195,7 +199,9 @@ export default function DashboardReleves() {
                 <div>
                   <p className="text-xs text-gray-500 uppercase">Sexe</p>
                   <p className="font-semibold text-[#202A26]">
-                    {transcript.candidate?.sexe === "M" ? "Masculin" : "Feminin"}
+                    {transcript.candidate?.sexe === "M"
+                      ? "Masculin"
+                      : "Feminin"}
                   </p>
                 </div>
               </div>
@@ -229,30 +235,30 @@ export default function DashboardReleves() {
                 <tbody>
                   {transcript.notes?.map((note: any, i: number) => (
                     <tr key={i} className="border-b border-gray-100">
-                      <td className="py-2.5 text-sm">
-                        {note.libelleMatiere}
-                      </td>
+                      <td className="py-2.5 text-sm">{note.libelleMatiere}</td>
                       <td className="py-2.5 text-sm text-center font-medium">
                         {note.valeur?.toFixed(2)}
                       </td>
                       <td className="py-2.5 text-sm text-center text-gray-500">
-                        x{note.coefficient}
+                        x{note.coefficient ?? 1}
                       </td>
                       <td className="py-2.5 text-sm text-center font-medium text-[#1E8B4C]">
-                        {(note.valeur * note.coefficient).toFixed(1)}
+                        {((note.valeur ?? 0) * (note.coefficient ?? 1)).toFixed(
+                          1
+                        )}
                       </td>
                       <td className="py-2.5 text-sm text-center">
                         {note.valeur >= 16
                           ? "Tres Bien"
                           : note.valeur >= 14
-                          ? "Bien"
-                          : note.valeur >= 12
-                          ? "Assez Bien"
-                          : note.valeur >= 10
-                          ? "Passable"
-                          : note.valeur >= 8
-                          ? "Insuffisant"
-                          : "Faible"}
+                            ? "Bien"
+                            : note.valeur >= 12
+                              ? "Assez Bien"
+                              : note.valeur >= 10
+                                ? "Passable"
+                                : note.valeur >= 8
+                                  ? "Insuffisant"
+                                  : "Faible"}
                       </td>
                     </tr>
                   ))}
@@ -269,7 +275,8 @@ export default function DashboardReleves() {
                     <p className="text-xl font-bold text-[#202A26]">
                       {transcript.notes
                         ?.reduce(
-                          (s: number, n: any) => s + n.valeur * n.coefficient,
+                          (s: number, n: any) =>
+                            s + (n.valeur ?? 0) * (n.coefficient ?? 1),
                           0
                         )
                         .toFixed(1)}
@@ -279,9 +286,9 @@ export default function DashboardReleves() {
                     <p className="text-xs text-gray-500">Total coefficients</p>
                     <p className="text-xl font-bold text-[#202A26]">
                       {transcript.notes?.reduce(
-                        (s: number, n: any) => s + n.coefficient,
+                        (s: number, n: any) => s + (n.coefficient ?? 1),
                         0
-                      )}
+                      ) ?? 0}
                     </p>
                   </div>
                   <div>
@@ -325,6 +332,7 @@ export default function DashboardReleves() {
             {/* Actions */}
             <div className="px-8 py-4 border-t border-[#C4D7C4]/30 flex justify-end gap-3 print:hidden">
               <Button
+                type="button"
                 variant="outline"
                 onClick={handlePrint}
                 className="border-[#C4D7C4]"
@@ -332,7 +340,11 @@ export default function DashboardReleves() {
                 <Printer className="w-4 h-4 mr-2" />
                 Imprimer
               </Button>
-              <Button className="bg-[#1E8B4C] hover:bg-[#167a3f]">
+              <Button
+                type="button"
+                className="bg-[#1E8B4C] hover:bg-[#167a3f]"
+                onClick={handleDownloadPdf}
+              >
                 <Download className="w-4 h-4 mr-2" />
                 Telecharger PDF
               </Button>
